@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>Gözler Tapınağı</title>
+  <link href="That-That-nEW-PİXEL-ROUND.ttf" rel="stylesheet" type="font/ttf">
+
+  <style>
+    @font-face {
+      font-family: 'Erence';
+      src: url('Erence-Regular.ttf') format('truetype');
+      font-weight: normal;
+      font-style: normal;
+    }
+
+    body {
+      margin: 0;
+      background: black;
+      font-family: 'That-That-nEW-PİXEL-ROUND', monospace;
+      color: white;
+      overflow: hidden;
+    }
+
+    .eye-container {
+      position: relative;
+      width: 100%;
+      height: 100vh;
+    }
+
+    @keyframes tremble {
+      0% { transform: translate(0, 0); }
+      25% { transform: translate(1px, -1px); }
+      50% { transform: translate(-1px, 1px); }
+      75% { transform: translate(1px, 1px); }
+      100% { transform: translate(0, 0); }
+    }
+
+    .eye {
+      position: absolute;
+      width: 120px;
+      cursor: pointer;
+      animation: pulse 4s infinite ease-in-out, tremble 0.3s infinite;
+    }
+
+    .red-eye img {
+      filter: hue-rotate(330deg) saturate(200%);
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      flex-direction: column;
+      text-align: center;
+    }
+
+    .modal img {
+      margin-bottom: 20px;
+    }
+
+    .modal p {
+      font-size: 22px;
+      max-width: 600px;
+    }
+
+    .close-btn {
+      margin-top: 20px;
+      padding: 10px 20px;
+      border: 1px solid white;
+      cursor: pointer;
+    }
+
+    .secret-button {
+      position: absolute;
+      width: 60px;
+      height: 60px;
+      opacity: 0;                  /* normalde tamamen gizli */
+      background: transparent;     /* arka plan yok */
+      border: 1px solid transparent; /* çerçeve gizli */
+      transition: opacity 0.2s ease, transform 0.1s ease, border-color 0.2s ease, background 0.2s ease;
+      cursor: pointer;
+      z-index: 1000;
+    }
+
+    .secret-button:hover {
+      opacity: 0.5;                          /* sadece hover’da parlasın */
+      border-color: rgba(255,0,0,0.8);       /* kırmızı çerçeve belirir */
+      background: rgba(255,0,0,0.12);        /* hafif kırmızı parıltı */
+      transform: scale(1.03);
+    }
+
+    .secret-popup {
+      display: none;
+      position: fixed;
+      z-index: 9999;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.95);
+      color: white;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+
+    /* Burada Erence fontu uygulanıyor */
+    .secret-popup #secretText {
+      font-family: 'Erence', monospace !important;
+      font-size: 28px;
+      letter-spacing: 2px;
+    }
+
+    .secret-popup img {
+      max-width: 300px;
+      margin-top: 20px;
+    }
+
+    .secret-close {
+      margin-top: 20px;
+      padding: 10px 20px;
+      border: 1px solid white;
+      cursor: pointer;
+    }
+
+    .secret-popup .prompt { margin-top: 10px; font-size: 16px; opacity: 0.8; }
+    .secret-popup input[type="text"] {
+      margin-top: 12px;
+      padding: 10px 12px;
+      font-size: 16px;
+      border: 1px solid #555;
+      background: #111;
+      color: #fff;
+      outline: none;
+    }
+    .secret-popup button.secret-submit {
+      margin-top: 10px;
+      padding: 8px 14px;
+      border: 1px solid #fff;
+      background: transparent;
+      color: #fff;
+      cursor: pointer;
+    }
+    .glitch-overlay {
+      position: fixed;
+      inset: 0;
+      background: black;
+      display: none;
+      z-index: 10000;
+      animation: glitchFlash 0.7s steps(6) forwards;
+    }
+    @keyframes glitchFlash {
+      0% { opacity: 0; }
+      20% { opacity: 0.6; }
+      40% { opacity: 0.1; }
+      60% { opacity: 0.8; }
+      80% { opacity: 0.3; }
+      100% { opacity: 1; }
+    }
+    .found-mark {
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      background: red;
+      border: 1px solid #fff;
+      border-radius: 50%;
+      top: -8px;
+      right: -8px;
+    }
+    @keyframes shake {
+      0% { transform: translateX(0); }
+      25% { transform: translateX(-4px); }
+      50% { transform: translateX(4px); }
+      75% { transform: translateX(-3px); }
+      100% { transform: translateX(0); }
+    }
+    .completion-overlay {
+      position: fixed;
+      inset: 0;
+      background: #000;
+      display: none;
+      z-index: 10001;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+    }
+    .completion-overlay img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      image-rendering: pixelated;
+    }
+  </style>
+</head>
+<body>
+
+<div class="eye-container">
+  <div class="eye" style="top: 10px; left: 10px;" onclick="openModal('selin_popup.gif', 'Selin Yilmaz — 15.06.2025', 'Selin’in gozleri hep parliyordu, arardi. Insanlarin bakarken unuttugu seyleri, yansimalari yakalamaya calisirdi. Onun gozlerinde nefrete yer yoktu ama etrafi nefret doluydu. Ben Selin’i buldugumda, gozlerindeki son pariltiyi korumaya karar verdim. Simdi o parilti, kirlenmeyecegi bir yerde benimle kaliyor.', 'selin.png')">
+    <img src="eye.gif" alt="Selin Göz">
+  </div>
+
+  <div class="eye" style="top: 10px; right: 10px; opacity: 0; pointer-events: auto;" onclick="openModal('missing_eye.png', '________ — ?', 'Bu goz hala ait olduğu masumiyeti bekliyor.', 'cerengoz.png')">
+    <img src="eye.gif" alt="Eksik Göz">
+  </div>
+
+  <div class="eye red-eye" style="top: 50%; left: 50%; transform: translate(-50%, -50%);" onclick="openModal('ceren_popup.png', 'Irmak K. — 01.08.2025', 'Irmak’in gozleri fazla parlakti, icini disina anlatiyordu. Ama bu dunya onun kadar durust bakislari anlamaz. Ona baktiklarinda dalga gectiler, ezdiler, umursamadilar. Ama ben gordum… Onun gozleri fazlaydi bu dunya icin. Simdi o gozler, asla lekelenmeyecegi yerde dinleniyor.', 'irmak.png')">
+    <img src="eye.gif" alt="Irmak Göz">
+  </div>
+  <div id="hiddenBoxContainer"></div>
+  <div id="glitchOverlay" class="glitch-overlay"></div>
+  <div id="completionOverlay" class="completion-overlay">
+    <img id="completionGif" src="" alt="tamamlayici-gif">
+  </div>
+</div>
+
+<div class="modal" id="eyeModal">
+  <div style="display: flex; gap: 20px; align-items: center;">
+    <img id="modalVictim" src="" alt="Kurban" style="width: 150px;">
+  </div>
+  <h2 id="modalName"></h2>
+  <p id="modalText"></p>
+  <div id="inputSection" style="display: none; margin-top: 20px;">
+    <input type="text" id="keywordInput" placeholder="" style="padding: 10px; font-size: 16px;">
+    <button onclick="checkKeyword()" style="padding: 10px 20px; margin-left: 10px;"></button>
+  </div>
+  <div class="close-btn" onclick="closeModal()"></div>
+</div>
+
+<script>
+  function openModal(eyeImage, name, text, victimImage) {
+    // Removed setting modalEye image since the element is removed
+    document.getElementById('modalVictim').src = victimImage;
+    const modalName = document.getElementById('modalName');
+    const modalText = document.getElementById('modalText');
+    const keywordInput = document.getElementById('keywordInput');
+    if (name.includes('________')) {
+      modalName.innerText = '-';
+      modalText.innerText = 'Bazi seyleri gorebilmek icinsadece kendin olman gerekir. \Sen Kimsin? ';
+      document.getElementById('inputSection').style.display = 'block';
+      modalName.style.fontFamily = "'Erence', monospace";
+      modalText.style.fontFamily = "'Erence', monospace";
+      // keywordInput.style.fontFamily = "'Erence', monospace"; // removed to use default font
+    } else if (name.startsWith('Selin') || name.startsWith('Irmak')) {
+      modalName.innerText = name;
+      modalText.innerText = text;
+      document.getElementById('inputSection').style.display = 'none';
+      modalName.style.fontFamily = "'Erence', monospace";
+      modalText.style.fontFamily = "'Erence', monospace";
+      // keywordInput.style.fontFamily = ""; // removed to keep default font
+    } else {
+      modalName.innerText = name;
+      modalText.innerText = text;
+      document.getElementById('inputSection').style.display = 'none';
+      modalName.style.fontFamily = "";
+      modalText.style.fontFamily = "";
+      // keywordInput.style.fontFamily = ""; // removed to keep default font
+    }
+    document.getElementById('eyeModal').style.display = 'flex';
+  }
+
+  function closeModal() {
+    document.getElementById('eyeModal').style.display = 'none';
+  }
+
+  function checkKeyword() {
+    const inputRaw = document.getElementById('keywordInput').value.trim();
+    const input = inputRaw.toLowerCase();
+
+    // "ben" davranışı eski haliyle kalsın (istersen kaldırırız)
+    if (input === 'ben') {
+      alert('Artık senin gözlerin de benimle.');
+      // mevcut yönlendirme davranışını koruyoruz
+      // window.location.href = 'gozsonrasi.html';
+      closeModal();
+      return;
+    }
+
+    // "ceren cebeci" doğru şifre: gizli kutuları oluştur + ses çal
+    if (input === 'ceren cebeci') {
+      // Ses
+      const unlock = document.getElementById('unlockSound');
+      if (unlock) {
+        unlock.currentTime = 0;
+        unlock.play().catch(()=>{});
+      }
+      // Gizli kutuları oluştur
+      createHiddenBoxes();
+      // Modalı kapat
+      closeModal();
+      alert('Ait olduğun yere hoş geldin.');
+      return;
+    }
+
+    alert('Yanlış şifre.');
+  }
+
+  let boxesCreated = false;
+  function createHiddenBoxes() {
+    if (boxesCreated) return;
+    boxesCreated = true;
+
+    const container = document.querySelector('.eye-container');
+    container.style.position = 'relative';
+
+    // 1. kutu
+    const b1 = document.createElement('div');
+    b1.className = 'secret-button';
+    b1.title = "Yanıp sönen kelimelerden korkma, onları hatırla.";
+    b1.style.top = '20%';
+    b1.style.left = '40%';
+    b1.onclick = () => openSecretPopup(0, 'Yanip sonen kelimelerden korkma, onlari hatirla.', 'gizli2.png');
+
+    // 2. kutu
+    const b2 = document.createElement('div');
+    b2.className = 'secret-button';
+    b2.title = "Yanıp sönen kelimelerden korkma, onları hatırla.";
+    b2.style.top = '60%';
+    b2.style.left = '70%';
+    b2.onclick = () => openSecretPopup(1, 'Yanip sonen kelimelerden korkma, onlari hatirla', 'gizli2.png');
+
+    // 3. kutu
+    const b3 = document.createElement('div');
+    b3.className = 'secret-button';
+    b3.title = "Yanıp sönen kelimelerden korkma, onları hatırla.";
+    b3.style.top = '80%';
+    b3.style.left = '20%';
+    b3.onclick = () => openSecretPopup(2, 'Yanip sonen kelimelerden korkma, onlari hatirla', 'gizli2.png');
+
+    container.appendChild(b1);
+    container.appendChild(b2);
+    container.appendChild(b3);
+  }
+</script>
+
+<audio id="backgroundMusic" src="rituelmusic.mp3" loop></audio>
+<audio id="unlockSound" src="hoşgeldin.mp3"></audio>
+<audio id="completionSound" src="tvweb.mp3"></audio>
+<audio id="completionExtraSound" src="tvweb.mp3"></audio>
+<audio id="disturbingSound" src="rituelmusic.mp3"></audio>
+<script>
+  window.addEventListener('load', function() {
+    if (sessionStorage.getItem('playMusic') === 'true') {
+      const audio = document.getElementById('backgroundMusic');
+      audio.play().catch(e => { console.log('Autoplay blocked:', e); });
+      sessionStorage.removeItem('playMusic');
+    }
+  });
+</script>
+<script>
+  // Rahatsız edici ses: sayfaya gelindiğinde bir kez çal (autoplay engeline düşerse ilk etkileşimde)
+  (function(){
+    const KEY = 'playedDisturbing_gz2';
+    function tryPlay(){
+      const a = document.getElementById('disturbingSound');
+      if (!a) return;
+      a.volume = 1.0; // istersen 0.7 gibi ayarlayabilirsin
+      a.currentTime = 0;
+      a.play().catch(()=>{
+        // Autoplay engellendiyse, ilk kullanıcı etkileşiminde çal
+        ['pointerdown','keydown','mousemove','touchstart'].forEach(ev => {
+          window.addEventListener(ev, oncePlay, { once: true });
+        });
+      });
+    }
+    function oncePlay(){
+      const a = document.getElementById('disturbingSound');
+      if (!a) return;
+      a.volume = 1.0;
+      a.currentTime = 0;
+      a.play().catch(()=>{});
+    }
+    window.addEventListener('load', function(){
+      try {
+        if (sessionStorage.getItem(KEY) === '1') return; // aynı oturumda bir kez
+        sessionStorage.setItem(KEY, '1');
+      } catch(e) {}
+      tryPlay();
+    });
+  })();
+</script>
+
+<div class="secret-popup" id="secretPopup">
+  <h2 id="secretText">!</h2>
+  <div class="prompt" id="secretPrompt"></div>
+  <input id="secretInput" type="text" placeholder="..." />
+  <button class="secret-submit" id="secretSubmit">Gönder</button>
+  <img id="secretImage" src="" alt="Şifre Görseli">
+  <div class="secret-close" onclick="closeSecretPopup()"></div>
+</div>
+
+<script>
+  // === Puzzle State ===
+  const requiredCodes = ['masumiyet', 'kayıp', 'göz']; // burayı dilediğin gibi değiştir
+  const foundCodes = [false, false, false];
+  let activeBoxIndex = null;
+
+  function openSecretPopup(index, text, imageSrc) {
+    activeBoxIndex = index;
+    const scaryAudio = document.getElementById("scarySound");
+    scaryAudio.currentTime = 0;
+    scaryAudio.play();
+
+    const secretTextElem = document.getElementById("secretText");
+    const secretPromptElem = document.getElementById("secretPrompt");
+    const secretInput = document.getElementById("secretInput");
+    const secretSubmit = document.getElementById("secretSubmit");
+
+    secretTextElem.innerText = text;
+    secretTextElem.style.fontFamily = "'Erence', monospace";
+    secretPromptElem.innerText = "Anahtar kelimeyi gir:";
+    document.getElementById("secretImage").src = imageSrc;
+
+    secretInput.value = '';
+    document.getElementById("secretPopup").style.display = "flex";
+
+    // Submit handler (re-bound each open)
+    secretSubmit.onclick = () => {
+      const val = (secretInput.value || '').trim().toLowerCase();
+      if (!val) return;
+
+      if (val === requiredCodes[index]) {
+        foundCodes[index] = true;
+
+        // Kutunun üstüne küçük işaret
+        const container = document.querySelector('.eye-container');
+        const btn = container.querySelectorAll('.secret-button')[index];
+        if (btn && !btn.querySelector('.found-mark')) {
+          const mark = document.createElement('div');
+          mark.className = 'found-mark';
+          btn.appendChild(mark);
+        }
+
+        closeSecretPopup();
+        checkPuzzleCompletion();
+      } else {
+        // Yanlışsa kısa bir titreşim
+        secretInput.style.animation = 'shake 0.2s';
+        setTimeout(() => secretInput.style.animation = '', 220);
+      }
+    };
+  }
+
+  function closeSecretPopup() {
+    document.getElementById("secretPopup").style.display = "none";
+  }
+
+  function checkPuzzleCompletion() {
+    if (foundCodes.every(Boolean)) {
+      const co = document.getElementById('completionOverlay');
+      const cg = document.getElementById('completionGif');
+      const cs = document.getElementById('completionSound');
+      const ces = document.getElementById('completionExtraSound');
+
+      // GIF kaynağını her seferinde tazeleyerek (cache-bust) yükle
+      if (cg) {
+        cg.src = 'geçiş.gif?ts=' + Date.now(); // kendi GIF dosya adını kullanabilirsin
+      }
+
+      // Overlay'i hemen göster
+      if (co) co.style.display = 'flex';
+
+      // Sesi hemen çal
+      if (cs) {
+        cs.currentTime = 0;
+        cs.play().catch(()=>{});
+      }
+      if (ces) {
+        ces.currentTime = 0;
+        ces.play().catch(()=>{});
+      }
+
+      // GIF yüklendiğinde kısa bir bekleme sonrası yönlendir; yüklenmezse de fallback
+      const go = () => { window.location.href = 'son.html'; };
+
+      if (cg) {
+        if (!cg.complete) {
+          cg.onload = () => setTimeout(go, 1200);
+          cg.onerror = () => setTimeout(go, 1200);
+        } else {
+          setTimeout(go, 1200);
+        }
+      } else {
+        setTimeout(go, 1200);
+      }
+    }
+  }
+</script>
+
+<audio id="scarySound" src="şşş.mp3"></audio>
+
+<!-- Arkaplanda loop müzik (dosya adını kendi müziğinle değiştir) -->
+<audio id="loopMusic" src="rituelmusic.mp3" loop></audio>
+<script>
+  (function(){
+    const music = document.getElementById('loopMusic');
+    if (!music) return;
+    music.volume = 0.35; // istersen 0.0 - 1.0 arası değiştir
+
+    function tryPlay(){
+      music.currentTime = 0;
+      music.play().catch(() => {
+        // Autoplay engellendiyse ilk etkileşimde çal
+        ['pointerdown','keydown','touchstart'].forEach(ev => {
+          window.addEventListener(ev, oncePlay, { once: true });
+        });
+      });
+    }
+    function oncePlay(){
+      music.currentTime = 0;
+      music.play().catch(()=>{});
+    }
+
+    window.addEventListener('load', tryPlay);
+  })();
+</script>
+</body>
+</html>

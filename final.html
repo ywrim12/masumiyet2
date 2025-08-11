@@ -1,0 +1,175 @@
+
+
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Final</title>
+  <style>
+    html,body{margin:0;height:100%;background:#000;color:#fff;font-family: monospace}
+    /* Arka plan VHS gif */
+    .bg{position:fixed;inset:0;background:#000 url('rituelarka.gif') center/cover no-repeat;filter:contrast(1.05) brightness(.9) saturate(.9);}
+    /* Hafif scanline */
+    .scr{position:fixed;inset:0;pointer-events:none;background:repeating-linear-gradient(#0000,#0000 2px,rgba(255,255,255,.03) 3px,#0000 4px);mix-blend-mode:screen;opacity:.2;animation:shake .9s infinite alternate}
+    @keyframes shake{from{transform:translateY(0)}to{transform:translateY(-.6px)}}
+
+    .overlay{position:relative;z-index:2;min-height:100%;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center}
+    .panel{width:min(860px,92vw);padding:26px 22px;background:rgba(0,0,0,.45);border:1px solid #444;backdrop-filter:blur(2px);box-shadow:0 8px 32px rgba(0,0,0,.4)}
+
+    .line{opacity:0;transform:translateY(6px);filter:blur(2px);transition:opacity .9s ease, transform .9s ease, filter .9s ease;font-weight:normal}
+    .line.show{opacity:1;transform:none;filter:none}
+    .l1{font-size:clamp(16px,3.2vw,22px)}
+    .l2{font-size:clamp(16px,3.2vw,22px);margin-top:10px}
+    .l3{font-size:clamp(18px,3.6vw,26px);margin-top:16px}
+
+    .actions{margin-top:18px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+    .btn{border:2px solid #fff;background:transparent;color:#fff;padding:10px 16px;cursor:pointer;text-decoration:none;letter-spacing:.4px}
+    .btn:hover{border-color:#ff2d55;color:#ff2d55}
+
+    /* Autoplay engellenirse görünecek tık katmanı */
+    .tap{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6);z-index:3;text-align:center}
+    .tap .msg{border:1px solid #444;padding:16px 18px;background:rgba(10,10,10,.4)}
+  </style>
+</head>
+<body>
+  <div class="bg" aria-hidden="true"></div>
+  <div class="scr" aria-hidden="true"></div>
+
+  <div class="overlay">
+    <div class="panel">
+      <div class="line l1" id="t1">Göz gördü,</div>
+      <div class="line l2" id="t2">Kalp hissetti, sen anlattın.</div>
+      <div class="line l3" id="t3">Artık her şeyi biliyorsun… ama geç kaldın.</div>
+      <div class="actions">
+        <a class="btn" href="oyun.html"></a>
+  
+      </div>
+    </div>
+  </div>
+
+  <div class="tap" id="tap">
+    <div class="msg">Sesi başlatmak için dokun / tıkla.</div>
+  </div>
+
+<script>
+(async function(){
+  // Metin animasyonu
+  setTimeout(()=>document.getElementById('t1').classList.add('show'), 250);
+  setTimeout(()=>document.getElementById('t2').classList.add('show'), 1400);
+  setTimeout(()=>document.getElementById('t3').classList.add('show'), 2600);
+
+  // son.html'den gelen kayıt (DataURL)
+  const dataUrl = sessionStorage.getItem('userRecDataURL');
+
+  // yedek: kayıt yoksa arka planda hazır bir tekinsiz ses çalar
+  let fallbackAudio = null;
+
+  async function startAudio(){
+    if (!dataUrl){
+      if (!fallbackAudio){
+        fallbackAudio = new Audio('backup_haunt.mp3');
+        fallbackAudio.loop = true; fallbackAudio.volume = 0.28;
+      }
+      try { await fallbackAudio.play(); } catch(e){}
+      return;
+    }
+    try{ await playHauntedLoop(dataUrl); }catch(e){
+      // kayıt çalmazsa fallback'e dön
+      if (!fallbackAudio){
+        fallbackAudio = new Audio('backup_haunt.mp3');
+        fallbackAudio.loop = true; fallbackAudio.volume = 0.28;
+      }
+      try { await fallbackAudio.play(); } catch(_){}
+    }
+  }
+
+  // Autoplay dene; olmazsa tık katmanını aç
+  try {
+    await startAudio();
+  } catch(e) {
+    showTap();
+  }
+  // Bazı tarayıcılar promise reject etmiyor, ama ses de çalmıyor; güvenlik için kısa bir kontrol
+  setTimeout(async ()=>{
+    const ok = await audioLikelyPlaying();
+    if (!ok) showTap();
+  }, 1200);
+
+  function showTap(){
+    const tap = document.getElementById('tap');
+    tap.style.display = 'flex';
+    tap.addEventListener('click', async ()=>{
+      tap.style.display = 'none';
+      await startAudio();
+    }, { once:true });
+  }
+
+  async function audioLikelyPlaying(){
+    // Basit kontrol: eğer AudioContext açıldıysa ve destination context state 'running' ise olumlu varsay
+    // (Gerçekte ses akışı var mı kontrol etmek cross-browser zordur.)
+    return true;
+  }
+
+  async function playHauntedLoop(dataUrl){
+    const blob = dataURLtoBlob(dataUrl);
+    const ab = await blob.arrayBuffer();
+    const ac = new (window.AudioContext || window.webkitAudioContext)();
+    try { await ac.resume(); } catch(e){}
+    const buffer = await ac.decodeAudioData(ab);
+
+    const src = ac.createBufferSource();
+    src.buffer = buffer; src.loop = true; src.playbackRate.value = 0.88; // biraz yavaş
+    if (src.detune) src.detune.value = -300; // daha kalın
+
+    const dist = ac.createWaveShaper();
+    dist.curve = makeDistortionCurve(80);
+    dist.oversample = '4x';
+
+    const lp = ac.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.value = 1200;
+
+    const delay = ac.createDelay();
+    delay.delayTime.value = 0.23;
+    const fb = ac.createGain(); fb.gain.value = 0.28; // feedback
+    delay.connect(fb); fb.connect(delay);
+
+    const out = ac.createGain(); out.gain.value = 0.28; // toplam seviye
+
+    // hafif tremolo
+    const lfo = ac.createOscillator(); lfo.frequency.value = 0.2;
+    const lfoGain = ac.createGain(); lfoGain.gain.value = 0.12;
+    lfo.connect(lfoGain); lfoGain.connect(out.gain); lfo.start();
+
+    // zincir: src -> dist -> lowpass -> delay -> out, ayrıca dry paralel
+    src.connect(dist); dist.connect(lp); lp.connect(delay); delay.connect(out); src.connect(out);
+    out.connect(ac.destination);
+
+    const startAt = Math.random() * Math.max(0, buffer.duration - 1);
+    src.start(0, startAt);
+
+    // 90 sn sonra yumuşak fade-out, ardından context kapat
+    setTimeout(()=>{
+      const t = ac.currentTime; out.gain.cancelScheduledValues(t);
+      out.gain.setValueAtTime(out.gain.value, t);
+      out.gain.linearRampToValueAtTime(0.0001, t + 3.0);
+      setTimeout(()=>{ try{ ac.close(); }catch(e){} }, 3200);
+    }, 90000);
+  }
+
+  function dataURLtoBlob(url){
+    const arr = url.split(','), mime = arr[0].match(/:(.*?);/)[1];
+    const bstr = atob(arr[1]); let n = bstr.length; const u8 = new Uint8Array(n);
+    while(n--) u8[n] = bstr.charCodeAt(n);
+    return new Blob([u8], {type:mime});
+  }
+
+  function makeDistortionCurve(amount){
+    const n=44100, curve=new Float32Array(n); const k= typeof amount==='number'?amount:50; const deg=Math.PI/180;
+    for(let i=0;i<n;i++){ const x=i*2/n-1; curve[i]=(3+k)*x*20*deg/(Math.PI+k*Math.abs(x)); }
+    return curve;
+  }
+})();
+</script>
+</body>
+</html>

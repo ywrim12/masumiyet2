@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>Ritüel</title>
+  <link href="That-That-nEW-PİXEL-ROUND.ttf" rel="stylesheet" type="font/ttf">
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'That-That-nEW-PİXEL-ROUND', monospace;
+      background: url("rituelarka.gif") no-repeat center center fixed;
+      background-size: cover;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      color: white;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 28px;
+      color: white;
+      margin-bottom: 20px;
+      font-weight: bold;
+    }
+
+    p.alt-yazi {
+      font-size: 30px;
+      font-style: italic;
+      margin-bottom: 40px;
+    }
+
+    .button-container {
+      display: flex;
+      gap: 20px;
+    }
+
+    .rituel-button {
+      font-family: 'That-That-nEW-PİXEL-ROUND', monospace;
+      background: none;
+      border: 2px solid white;
+      color: white;
+      padding: 10px 20px;
+      cursor: pointer;
+      font-size: 18px;
+      transition: 0.3s;
+    }
+
+    .rituel-button:hover {
+      background-color: rgba(255, 0, 0, 0.2);
+      border-color: red;
+      color: red;
+    }
+
+    #glitchEffect {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 9999;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+  <img src="geçiş.gif" id="glitchEffect" alt="Glitch Effect">
+
+  <p class="alt-yazi">Her zaman iki kapı vardır.<br> Ama içeri girdiğinde…<br> Senin yerine çoktan karar verilmiştir.</p>
+  <h1>Şimdi hangisini saklamak istersin?</h1>
+
+  <div class="button-container">
+    <button class="rituel-button" onclick="goToPage('gozler.html', true)">Gözlerimi</button>
+    <button class="rituel-button" onclick="goToPage('kalpler.html', false)">Kalbimi</button>
+  </div>
+
+  <script>
+    function goToPage(page, isGozler) {
+      const glitch = document.getElementById("glitchEffect");
+      const audio = new Audio("glitchbutton.mp3");
+
+      if (isGozler) {
+        sessionStorage.setItem('playMusic', 'true');
+      }
+
+      glitch.style.display = "block";
+      audio.play();
+
+      setTimeout(() => {
+        window.location.href = page;
+      }, 700); // 0.7 saniyelik efekt
+    }
+  </script>
+</body>
+</html>

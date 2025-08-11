@@ -1,0 +1,258 @@
+
+
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Son — Fısıltıyı Bırak</title>
+  <style>
+    :root { --accent:#ff2d55; --dim:#b7b7b7; }
+    html,body { margin:0; height:100%; background:#000; color:#fff; font-family: monospace; }
+    .wrap { position:relative; min-height:100%; display:flex; align-items:center; justify-content:center; }
+    .panel { width:min(860px,92vw); padding:28px; border:1px solid #444; background:rgba(10,10,10,.35); backdrop-filter: blur(2px); text-align:center; box-shadow:0 8px 30px rgba(0,0,0,.35); }
+    .q { font-size:clamp(16px,3.2vw,22px); line-height:1.5; margin:0 0 14px; }
+    .hint { color:var(--dim); font-size:clamp(12px,2.6vw,14px); margin:0 0 18px; }
+    .faces { display:flex; gap:16px; justify-content:center; margin:0 0 16px; }
+    .face { width:160px; height:200px; background:#111; border:1px solid #333; overflow:hidden; position:relative; }
+    .face img { width:100%; height:100%; object-fit:cover; filter: contrast(1.1) brightness(.9) grayscale(.25); }
+    .btns { display:flex; gap:10px; justify-content:center; margin:12px 0 8px; flex-wrap:wrap; }
+    button { border:2px solid #fff; background:transparent; color:#fff; padding:10px 16px; cursor:pointer; letter-spacing:.4px; }
+    button:hover { border-color: var(--accent); color: var(--accent); }
+    .mic { width:78px; height:78px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:28px; }
+    .mic.rec { box-shadow:0 0 20px rgba(255,45,85,.35), 0 0 2px rgba(255,45,85,.8) inset; border-color:var(--accent); }
+    .status { margin-top:8px; font-size:13px; color:var(--dim); min-height:1.2em; }
+    .barwrap { height:8px; background:#151515; border:1px solid #2a2a2a; margin:12px 0 0; }
+    .bar { height:100%; width:0%; background:linear-gradient(90deg, #b00, #f44); transition: width .08s linear; }
+    .timer { margin-top:6px; font-size:12px; opacity:.8; }
+    .vhs { position:fixed; inset:0; pointer-events:none; background: repeating-linear-gradient(#0000, #0000 2px, rgba(255,255,255,.03) 3px, #0000 4px); mix-blend-mode: screen; opacity:.18; animation: shake .9s infinite alternate; }
+    @keyframes shake { from { transform: translateY(0); } to { transform: translateY(-.6px); } }
+
+    /* Tam ekran VHS GIF arka plan */
+    .bg {
+      position: fixed;
+      inset: 0;
+      background: #000 url('rituelarka.gif') center/cover no-repeat;
+      filter: contrast(1.05) brightness(.9) saturate(.9);
+      z-index: -1; /* içerik altında kalsın */
+    }
+
+    .after { display:none; margin-top:16px; color:#ccc; font-size:14px; opacity:.9; }
+    .proceed { display:none; margin-top:14px; }
+
+    /* Arka planda kendi sesini çarpık olarak duyduğun bilgisi */
+    .notice { margin-top:10px; font-size:12px; color:#8e8e8e; opacity:.75; }
+  </style>
+</head>
+<body>
+  <div class="bg" aria-hidden="true"></div>
+  <div class="wrap">
+    <div class="panel">
+      <p class="q">Irmak ve Selin’i birbirine bağlayan nedir?<br>Fısıltıyla anlat.</p>
+      
+      <div class="faces">
+        <div class="face"><img src="selin.png" alt="Selin"></div>
+        <div class="face"><img src="irmak.png" alt="Irmak"></div>
+      </div>
+
+      <div class="btns">
+        <button id="startBtn" class="mic" aria-label="Kayda başla">🎙</button>
+        <button id="stopBtn" disabled>Durdur</button>
+        <button id="playBtn" disabled>Dinle</button>
+        <a id="downloadLink" class="dl" download="itiraf.webm" style="display:none">Kaydı indir</a>
+      </div>
+
+      <div class="status" id="status">Hazır.</div>
+      <div class="barwrap"><div class="bar" id="bar"></div></div>
+      <div class="timer" id="timer">00:00</div>
+
+      <div class="after" id="afterText">Dinlediğim her şey artık bende. Bir süre sonra… sen de duyacaksın.</div>
+      <div class="proceed"><button id="proceedBtn">Devam et</button></div>
+
+    </div>
+  </div>
+  <div class="vhs"></div>
+
+  <audio id="beep" src="beep.mp3"></audio>
+  <audio id="bg" src="low_hum.mp3" loop></audio>
+
+  <script>
+  (function(){
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn  = document.getElementById('stopBtn');
+    const playBtn  = document.getElementById('playBtn');
+    const dlLink   = document.getElementById('downloadLink');
+    const statusEl = document.getElementById('status');
+    const barEl    = document.getElementById('bar');
+    const timerEl  = document.getElementById('timer');
+    const afterEl  = document.getElementById('afterText');
+    const proceedC = document.querySelector('.proceed');
+    const proceed  = document.getElementById('proceedBtn');
+    const notice   = document.getElementById('notice');
+    const beep     = document.getElementById('beep');
+    const bg       = document.getElementById('bg');
+
+    let mediaStream, mediaRecorder, chunks = [], audioURL = null;
+    let ctx, analyser, dataArray, raf, t0;
+
+    function secFmt(s){ s = Math.max(0, Math.floor(s)); const m = String(Math.floor(s/60)).padStart(2,'0'); const ss = String(s%60).padStart(2,'0'); return m+":"+ss; }
+
+    function initAnalyser(stream){
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const src = ctx.createMediaStreamSource(stream);
+      analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      src.connect(analyser);
+      dataArray = new Uint8Array(analyser.frequencyBinCount);
+    }
+
+    function tick(){
+      if (!analyser) return;
+      analyser.getByteTimeDomainData(dataArray);
+      let maxDev = 0;
+      for (let i=0;i<dataArray.length;i++) maxDev = Math.max(maxDev, Math.abs(dataArray[i]-128));
+      const pct = Math.min(100, (maxDev/64)*100);
+      barEl.style.width = pct.toFixed(0) + '%';
+      const dt = (performance.now()-t0)/1000; timerEl.textContent = secFmt(dt);
+      raf = requestAnimationFrame(tick);
+    }
+
+    async function start(){
+      if (!navigator.mediaDevices?.getUserMedia) { statusEl.textContent = 'Mikrofon desteklenmiyor.'; return; }
+      try{
+        mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        try { bg.volume = 0.22; bg.play(); } catch(e){}
+        initAnalyser(mediaStream);
+        mediaRecorder = new MediaRecorder(mediaStream, { mimeType: 'audio/webm' });
+        chunks = [];
+        mediaRecorder.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+        mediaRecorder.onstop = onStop;
+        mediaRecorder.start();
+        t0 = performance.now();
+        tick();
+        startBtn.classList.add('rec');
+        startBtn.disabled = true; stopBtn.disabled = false; playBtn.disabled = true; dlLink.style.display = 'none';
+        statusEl.textContent = 'Kaydediliyor… Fısılda.';
+        try { beep.play(); } catch(e){}
+      }catch(err){ statusEl.textContent = 'Mikrofon izni alınamadı.'; }
+    }
+
+    function stop(){
+      if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
+      if (mediaStream) mediaStream.getTracks().forEach(t=>t.stop());
+      if (ctx) { try{ ctx.close(); }catch(e){} }
+      cancelAnimationFrame(raf);
+      startBtn.classList.remove('rec'); startBtn.disabled = false; stopBtn.disabled = true;
+      // iOS/Safari için ek güvence: etkileşim anında audio context resume
+      try { if (ctx && ctx.state === 'suspended') ctx.resume(); } catch(e){}
+    }
+
+    async function onStop(){
+      const blob = new Blob(chunks, { type: 'audio/webm' });
+      if (audioURL) URL.revokeObjectURL(audioURL);
+      audioURL = URL.createObjectURL(blob);
+      // Kaydı oturum için sakla (final.html alıp kullanacak)
+      try {
+        blobToDataURL(blob).then((dataUrl)=>{
+          try { sessionStorage.setItem('userRecDataURL', dataUrl); } catch(e){}
+        });
+      } catch(e){}
+
+      // indir & dinle
+      dlLink.href = audioURL; dlLink.style.display = 'inline-block';
+      playBtn.disabled = false; playBtn.onclick = () => { new Audio(audioURL).play().catch(()=>{}); };
+      statusEl.textContent = 'Kayıt hazır.';
+
+      // bir süre sonra arka planda çarpık olarak çal
+      try { if (notice) notice.style.display = 'block'; } catch(e){}
+      // arkaplan uğultusunu durdur ki yankı net duyulsun
+      try { bg && bg.pause && bg.pause(); } catch(e){}
+      setTimeout(() => {
+        try { playHauntedLoop(blob); } catch(e){}
+      }, 800);
+
+      // devam et butonu
+      proceedC.style.display = 'block';
+    }
+
+    // === Kendi sesini çarpık bir yankı olarak döndür ===
+    async function playHauntedLoop(blob){
+      const ab = await blob.arrayBuffer();
+      const ac = new (window.AudioContext || window.webkitAudioContext)();
+      try { await ac.resume(); } catch(e){}
+      const buffer = await ac.decodeAudioData(ab);
+
+      // Ana zincir: source -> waveshaper (dist) -> lowpass -> delay -> gain(out)
+      const src = ac.createBufferSource();
+      src.buffer = buffer; src.loop = true; src.playbackRate.value = 0.88; // hafif yavaş
+      if (src.detune) src.detune.value = -300; // daha kalın, tekinsiz
+
+      const dist = ac.createWaveShaper();
+      dist.curve = makeDistortionCurve(80); // hafif distorsiyon
+      dist.oversample = '4x';
+
+      const lp = ac.createBiquadFilter();
+      lp.type = 'lowpass'; lp.frequency.value = 1200; // tizleri kes, loş kalsın
+
+      const delay = ac.createDelay();
+      delay.delayTime.value = 0.23;
+      const fb = ac.createGain(); fb.gain.value = 0.28; // feedback
+      delay.connect(fb); fb.connect(delay);
+
+      const out = ac.createGain(); out.gain.value = 0.28; // daha belirgin seviye
+
+      // LFO ile hafif tremolo
+      const lfo = ac.createOscillator(); lfo.frequency.value = 0.2;
+      const lfoGain = ac.createGain(); lfoGain.gain.value = 0.12; // tremolo biraz daha derin
+      lfo.connect(lfoGain); lfoGain.connect(out.gain);
+      lfo.start();
+
+      src.connect(dist); dist.connect(lp); lp.connect(delay); delay.connect(out); src.connect(out); // dry+wet paralel
+      out.connect(ac.destination);
+
+      // rastgele bir noktadan başlat (daha doğal)
+      const startAt = Math.random() * Math.max(0, buffer.duration - 1);
+      src.start(0, startAt);
+
+      // 90 sn sonra yumuşak fade-out (loop sonsuza kadar sürmesin)
+      setTimeout(() => {
+        const t = ac.currentTime;
+        out.gain.cancelScheduledValues(t);
+        out.gain.setValueAtTime(out.gain.value, t);
+        out.gain.linearRampToValueAtTime(0.0001, t + 3.0);
+        setTimeout(()=>{ try{ ac.close(); }catch(e){} }, 3200);
+      }, 90000);
+    }
+
+    function makeDistortionCurve(amount){
+      const n_samples = 44100, curve = new Float32Array(n_samples);
+      const k = typeof amount === 'number' ? amount : 50;
+      const deg = Math.PI / 180;
+      for (let i = 0; i < n_samples; ++i) {
+        const x = i * 2 / n_samples - 1;
+        curve[i] = (3 + k) * x * 20 * deg / (Math.PI + k * Math.abs(x));
+      }
+      return curve;
+    }
+
+    function proceedNext(){
+      // Geçiş efekti/sonraki adımı burada belirle
+      window.location.href = 'final.html'; // değiştirilebilir hedef
+    }
+
+    startBtn.addEventListener('click', start);
+    stopBtn.addEventListener('click', stop);
+    proceed.addEventListener('click', proceedNext);
+
+    function blobToDataURL(b){
+      return new Promise((res, rej)=>{
+        const fr = new FileReader();
+        fr.onload = ()=> res(fr.result);
+        fr.onerror = rej;
+        fr.readAsDataURL(b);
+      });
+    }
+  })();
+  </script>
+</body>
+</html>

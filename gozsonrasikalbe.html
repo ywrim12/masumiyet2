@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <title>-</title>
+  <link href="That-That-nEW-PİXEL-ROUND.ttf" rel="stylesheet" type="font/ttf">
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    @font-face {
+      font-family: 'That-That-nEW-PİXEL-ROUND';
+      src: url('That-That-nEW-PİXEL-ROUND.ttf') format('truetype');
+      font-weight: normal; font-style: normal;
+    }
+    :root { --fg: #fff; --dim:#cfcfcf; --accent:#e63946; }
+    * { box-sizing: border-box }
+    html,body { height: 100%; margin:0; }
+    body {
+      font-family: 'That-That-nEW-PİXEL-ROUND', monospace;
+      color: var(--fg);
+      background: #000 url('rituelarka.gif') center/cover no-repeat fixed; /* Değiştir: arka plan GIF yolu */
+      display:flex; align-items:center; justify-content:center;
+      overflow:hidden;
+    }
+    .bg-layer {
+      position: fixed;
+      inset: 0;
+      background-position: center;
+      background-size: cover;
+      background-repeat: no-repeat;
+      pointer-events: none;
+      z-index: -1;
+    }
+    .wrap {
+      text-align:center; padding: 32px 24px; width:min(780px,92vw);
+      backdrop-filter: blur(2px);
+    }
+    h1, h2, p { margin: 0 0 14px }
+    h1, h2, .btn { font-weight: normal; }
+    h1 {
+      font-size: clamp(22px, 4vw, 34px);
+      line-height: 1.25;
+      letter-spacing: 1px;
+      animation: fadeIn 900ms ease-out both;
+      text-shadow: 0 0 6px rgba(255,255,255,.08);
+    }
+    h1 .em { color: var(--accent); }
+    .line {
+      margin: 22px auto 18px; width: 0; height: 1px; background: var(--dim);
+      animation: lineGrow 1200ms 900ms ease-out forwards;
+      opacity:.5;
+    }
+    .secondary {
+      font-size: clamp(16px, 2.6vw, 20px);
+      color: var(--dim);
+      letter-spacing:.5px;
+      opacity:0; animation: glitchIn 800ms 1700ms steps(6) forwards;
+    }
+    .btn {
+      margin-top: 30px;
+      display:inline-block;
+      border:2px solid #fff; color:#fff; background: transparent;
+      padding: 10px 20px; cursor:pointer; font-size: 18px;
+      letter-spacing: .5px; text-decoration:none;
+      transition: transform .12s ease, background .2s, color .2s, border-color .2s;
+    }
+    .btn:hover { background: rgba(230,57,70,.15); border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
+    .glitch {
+      position: fixed; inset:0; pointer-events:none; display:none; z-index:9999;
+      background:#000;
+      animation: glitchFlash .7s steps(6) forwards;
+    }
+    /* keyframes */
+    @keyframes fadeIn { from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:none} }
+    @keyframes lineGrow { to{ width: 220px; } }
+    @keyframes glitchIn {
+      0% { opacity:0; transform: translateY(6px) }
+      60% { opacity:.6; transform: translateY(0) }
+      100% { opacity:1; }
+    }
+    @keyframes glitchFlash {
+      0% { opacity: 0; } 20% { opacity: .6; } 40% { opacity: .1; }
+      60% { opacity: .85; } 80% { opacity: .3; } 100% { opacity: 1; }
+    }
+    /* küçük VHS titreşimi */
+    .vhs {
+      position: fixed; left:10px; bottom:8px; font-size:12px; opacity:.35;
+      letter-spacing:1px; user-select:none;
+      animation: vhsBlink 2.2s infinite steps(3);
+    }
+    @keyframes vhsBlink { 50% { opacity:.12 } }
+
+    .transition-overlay {
+      position: fixed;
+      inset: 0;
+      background: #000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+    }
+    .transition-overlay img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      image-rendering: pixelated;
+    }
+  </style>
+</head>
+<body>
+  <!-- Arka plan için GIF:
+       'gozsonrasi_bg.gif' dosyasını değiştirerek arkaplanı güncelleyebilirsin.
+       Alternatif olarak aşağıdaki .bg katmanına inline style ile background-image ekleyebilirsin. -->
+  <div class="bg-layer" aria-hidden="true"></div>
+  <div class="wrap">
+    <h1>Sadece <span class="em">gözlerini</span> vererek gidebileceğini mi sandın?</h1>
+    
+   
+    <a class="btn" id="toHearts" href="#" aria-label="Devam et">Kalbimi de sakla </a>
+  </div>
+
+  <div class="transition-overlay" id="transitionOverlay">
+    <img id="transitionGif" src="" alt="gecis">
+  </div>
+
+  <div class="glitch" id="glitch"></div>
+
+  <!-- Sesler -->
+  <audio id="bg" src="heartbeat.mp3" loop></audio>
+  <!-- İsteğe bağlı ek arka plan sesi için ikinci katman -->
+  <audio id="bg2" src="hoşgeldin.mp3" loop volume="10.0"></audio> <!-- Buraya kendi ses dosyanı ekle (boşsa çalınmaz) -->
+  <audio id="click" src="tvweb.mp3"></audio>
+  <audio id="transitionSound" src="gecis.mp3"></audio>
+
+  <div class="vhs">VIDEO 1 • TRACKING…</div>
+
+  <script>
+    // Otomatik ses: önce sessionStorage sinyali, olmadı ilk kullanıcı etkileşimine bağlan
+    const bg = document.getElementById('bg');
+    const bg2 = document.getElementById('bg2');
+    const bgLayer = document.querySelector('.bg-layer');
+    // Eğer body data-bg ile gelirse, arkaplanı JS ile set et
+    if (document.body.dataset.bg) {
+      bgLayer.style.backgroundImage = `url('${document.body.dataset.bg}')`;
+    }
+    function tryPlay() {
+      if (bg) { bg.play().catch(()=>{}); }
+      if (bg2 && bg2.src) { bg2.play().catch(()=>{}); }
+    }
+    window.addEventListener('load', () => {
+      if (sessionStorage.getItem('allowAudio') === 'true') {
+        tryPlay();
+        sessionStorage.removeItem('allowAudio');
+      }
+    }, { once:true });
+    ['pointerdown','keydown','mousemove'].forEach(ev => {
+      window.addEventListener(ev, () => { tryPlay(); }, { once:true });
+    });
+
+    // 2-3 sn sonra ikinci cümleyi zaten gösteriyoruz; (CSS ile zamanlandı)
+
+    // Buton → kısa glitch + yönlendirme
+    const btn = document.getElementById('toHearts');
+    const glitch = document.getElementById('glitch');
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const clickA = document.getElementById('click');
+      if (clickA) clickA.play().catch(()=>{});
+
+      // Show transition overlay with GIF and sound
+      const ov = document.getElementById('transitionOverlay');
+      const gi = document.getElementById('transitionGif');
+      const ts = document.getElementById('transitionSound');
+      if (gi) gi.src = 'geçiş.gif?ts=' + Date.now(); // kendi GIF dosya adınla değiştir
+      if (ov) ov.style.display = 'flex';
+      if (ts) { ts.currentTime = 0; ts.play().catch(()=>{}); }
+
+      // Kalpler sayfasında otomatik ses istersen sinyal bırak
+      sessionStorage.setItem('allowAudio', 'true');
+
+      // Kısa bekleme ve yönlendirme
+      setTimeout(() => { window.location.href = 'kalpler2.html'; }, 1100);
+    });
+  </script>
+</body>
+</html>

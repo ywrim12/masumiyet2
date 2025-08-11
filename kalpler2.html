@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Kalpler Tapınağı</title>
+  <link href="That-That-nEW-PİXEL-ROUND.ttf" rel="stylesheet" type="font/ttf">
+  <style>
+    @font-face {
+      font-family: 'That-That-nEW-PİXEL-ROUND';
+      src: url('That-That-nEW-PİXEL-ROUND.ttf') format('truetype');
+      font-weight: normal; font-style: normal;
+    }
+    :root { --fg:#fff; --dim:#cfcfcf; --accent:#ff2d55; }
+    * { box-sizing:border-box }
+    html, body { height:100%; margin:0; }
+    body {
+      background: #000 url('red.gif') center/cover no-repeat fixed; /* arka plan GIF'ini buradan değiştir */
+      color: var(--fg);
+      font-family: 'That-That-nEW-PİXEL-ROUND', monospace;
+      overflow:hidden;
+    }
+    .stage { position:relative; width:100%; height:100%; display:flex; align-items:center; justify-content:center; }
+
+    /* Kalp görseli ve hotspot alanı */
+    .heart-wrap { position:relative; width:min(780px, 92vw); aspect-ratio: 1/1; }
+    .heart-img {
+      position:absolute; inset:0; width:100%; height:100%; object-fit:contain; image-rendering:pixelated; opacity:.9;
+      filter: drop-shadow(0 0 12px rgba(255,0,0,.15));
+      animation: heartBeat 1100ms infinite ease-in-out;
+      transform-origin: center;
+    }
+
+    .region { position:absolute; border:1px dashed rgba(255,255,255,.08); cursor:pointer; }
+    .region::after { /* kilit etiketi */
+      content:"KİLİTLİ"; position:absolute; left:50%; bottom:calc(100% + 6px); transform:translateX(-50%);
+      font-size:12px; color:#aaa; opacity:.75; letter-spacing:1px;
+    }
+    .region:hover { outline:1px solid rgba(255,255,255,.25); }
+
+    /* Açılan bölme (canlı) */
+    .region.open { border-color: rgba(255,0,0,.0); }
+    .region.open::after { content: "AÇILDI"; color: var(--accent); opacity:1; }
+    .region.open .pulse { display:block; }
+
+    /* Kalp atışı overlay'i */
+    .pulse {
+      position:absolute; inset:-6px; display:none; border-radius:8px; pointer-events:none;
+      box-shadow: 0 0 0 0 rgba(255,45,85,.65);
+      animation: beat 1100ms infinite ease-out;
+    }
+    @keyframes beat {
+      0% { box-shadow: 0 0 0 0 rgba(255,45,85,.65); }
+      70% { box-shadow: 0 0 0 18px rgba(255,45,85,0); }
+      100% { box-shadow: 0 0 0 0 rgba(255,45,85,0); }
+    }
+    @keyframes heartBeat {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.03); }
+    }
+
+
+    /* Modal */
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.45); /* daha şeffaf: arka plan görünsün */
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      backdrop-filter: blur(1.5px); /* hafif blur, kalp ve GIF seçilir kalsın */
+    }
+    .card {
+      width: min(560px, 92vw);
+      border: 1px solid #666; /* biraz daha belirgin ama agresif değil */
+      padding: 20px;
+      text-align: center;
+      background: rgba(10,10,10,.35); /* daha şeffaf panel */
+      backdrop-filter: blur(2px);
+      box-shadow: 0 8px 30px rgba(0,0,0,.35); /* okunabilirlik için hafif gölge */
+    }
+    .card h2 { margin:0 0 12px; font-weight:normal; font-size:22px; }
+    .card p { margin:0 0 10px; color:var(--dim); font-size:15px; }
+    .card input { width:100%; padding:10px 12px; background:#111; color:#fff; border:1px solid #555; outline:none; font-size:16px; font-family:inherit; }
+    .row { display:flex; gap:10px; margin-top:12px; justify-content:center }
+    .btn { border:2px solid #fff; background:transparent; color:#fff; padding:8px 16px; cursor:pointer; font-size:16px; letter-spacing:.5px; }
+    .btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* Geçiş overlay (tam ekran GIF + ses) */
+    .transition-overlay { position:fixed; inset:0; background:#000; display:none; align-items:center; justify-content:center; z-index:10000; }
+    .transition-overlay img { width:100%; height:100%; object-fit:cover; image-rendering:pixelated; }
+
+    .jumpscare-overlay {
+      position: fixed;
+      inset: 0;
+      background: #000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 10050; /* transition overlay'den daha üstte olsun */
+    }
+    .jumpscare-overlay img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      image-rendering: pixelated;
+    }
+
+    /* Konuşma Bulmacası (Web Speech API) */
+    .speech-puzzle { position:fixed; inset:0; background:rgba(0,0,0,.6); backdrop-filter:blur(2px); display:none; align-items:center; justify-content:center; z-index:10020; }
+    .sp-card { width:min(720px,92vw); padding:22px; border:1px solid #555; background:rgba(10,10,10,.35); text-align:center; box-shadow:0 8px 30px rgba(0,0,0,.35); }
+    .sp-title { margin:0 0 8px; font-weight:normal; font-size:clamp(18px,3.2vw,24px); letter-spacing:.5px; }
+    .sp-sub { margin:0 14px 14px; color:var(--dim); font-size:clamp(12px,2.6vw,14px); }
+    .mic-btn { display:inline-flex; align-items:center; justify-content:center; width:82px; height:82px; border-radius:50%; border:2px solid #fff; background:transparent; color:#fff; cursor:pointer; transition:transform .12s ease, border-color .2s, box-shadow .2s; }
+    .mic-btn:hover { transform:translateY(-1px); border-color:var(--accent); box-shadow:0 0 16px rgba(255,45,85,.25); }
+    .mic-btn.rec { border-color:var(--accent); box-shadow:0 0 22px rgba(255,45,85,.35), 0 0 2px rgba(255,45,85,.8) inset; }
+    .mic-ico { width:42px; height:42px; }
+    .sp-status { margin-top:12px; font-size:13px; opacity:.75; }
+
+    /* Küçük VHS notu */
+    .vhs { position:fixed; right:10px; bottom:8px; font-size:12px; opacity:.33; user-select:none; }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <div class="heart-wrap">
+      <!-- Kalp görselini burada değiştir (şeffaf PNG önerilir) -->
+      <img class="heart-img" src="kalp.png" alt="Kalp" />
+
+      <!-- 3 Bölme: konum/ölçüleri görsele göre düzenleyebilirsin -->
+      <div class="region" data-index="0" style="left:16%; top:28%; width:28%; height:26%;">
+        <div class="pulse"></div>
+      </div>
+      <div class="region" data-index="1" style="right:14%; top:26%; width:28%; height:30%;">
+        <div class="pulse"></div>
+      </div>
+      <div class="region" data-index="2" style="left:34%; bottom:8%; width:32%; height:30%;">
+        <div class="pulse"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Modal -->
+  <div class="modal" id="modal">
+    <div class="card">
+      <h2>Bölme kilitli</h2>
+      <p>Kalbi sadece belirli kelimeler açar.</p>
+      <input id="keyInput" type="text" placeholder="" />
+      <div class="row">
+        <button class="btn" id="sendBtn">Gönder</button>
+        <button class="btn" id="cancelBtn">Kapat</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Geçiş overlay -->
+  <div class="transition-overlay" id="transition">
+    <img id="transitionGif" src="" alt="geçiş">
+  </div>
+  <div class="jumpscare-overlay" id="jumpscare">
+    <img id="jumpscareGif" src="" alt="jumpscare">
+  </div>
+
+  <!-- Konuşma Bulmacası (kelime söyleyince açılır) -->
+  <div class="speech-puzzle" id="speechPuzzle">
+    <div class="sp-card">
+      <h3 class="sp-title">Sen kimsin?</h3>
+      <div class="sp-sub"></div>
+      <button class="mic-btn" id="micBtn" aria-label="Mikrofon">
+        <!-- Basit mic ikon (SVG) -->
+        <svg class="mic-ico" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 14 0h-2zM11 19.93V22h2v-2.07A8.001 8.001 0 0 0 20 12h-2a6 6 0 0 1-12 0H4a8.001 8.001 0 0 0 7 7.93z"/>
+        </svg>
+      </button>
+      <div class="sp-status" id="spStatus">Hazır. "dinle"ye bas.</div>
+    </div>
+  </div>
+
+  <!-- Sesler -->
+  <audio id="heartHum" src="heartbeat.mp3" loop></audio>   <!-- arka plan uğultu/kalp atışı -->
+  <audio id="unlock" src="doğrukalp.mp3"></audio>       <!-- bölme açılınca -->
+  <audio id="deny" src="y.mp3"></audio>           <!-- yanlış cevap -->
+  <audio id="transSound" src="tvweb.mp3"></audio>    <!-- final geçiş sesi -->
+  <audio id="jumpscareSound" src="jumpscare.mp3"></audio>
+
+  <div class="vhs">VIDEO 2 • TRACKING…</div>
+
+  <script>
+    // === Konfigürasyon ===
+    // Gözler sayfasındaki 3 kelimeyi burada da kullan (istersen değiştir)
+    const REQUIRED = ['kurtuluş', 'sessizlik', 'koruma'];
+    // Eğer gözler sayfasında başka kelimeler kullandıysan burayı güncelle: ['parilti','yuk','sessizlik'] gibi
+
+    // Final ritim bulmacası: kelimelerin doğru sırası (indexlerle)
+    // 0: kurtuluş, 1: sessizlik, 2: koruma  (burayı istediğin sırayla değiştir)
+    const CORRECT_ORDER = [0, 2, 1];
+
+    // Redirect hedefi – tüm bölmeler açılınca nereye gidecek
+    const REDIRECT_TO = 'son.html'; // dilediğin sayfayla değiştir (oyun, indir vb.)
+
+    // Otomatik arka plan sesi – ilk etkileşimde tetiklemek için
+    const bg = document.getElementById('heartHum');
+    function tryPlayBG(){ bg && bg.play().catch(()=>{}); }
+    ['pointerdown','keydown','mousemove'].forEach(ev=>window.addEventListener(ev, tryPlayBG, {once:true}));
+
+    // Bölme/Modal referansları
+    const regions = Array.from(document.querySelectorAll('.region'));
+    const modal = document.getElementById('modal');
+    const keyInput = document.getElementById('keyInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const cancelBtn = document.getElementById('cancelBtn');
+    const remainCount = document.getElementById('remainCount');
+    function updateRemain() {
+      const remaining = 3 - opened.filter(Boolean).length;
+      if (remainCount) remainCount.textContent = remaining;
+    }
+
+    const unlock = document.getElementById('unlock');
+    const deny = document.getElementById('deny');
+
+    const transition = document.getElementById('transition');
+    const transitionGif = document.getElementById('transitionGif');
+    const transSound = document.getElementById('transSound');
+    const jumpscare = document.getElementById('jumpscare');
+    const jumpscareGif = document.getElementById('jumpscareGif');
+    const jumpscareSound = document.getElementById('jumpscareSound');
+
+    // Final puzzle değişti: speech puzzle referansları aşağıda eklenecek
+
+    let activeIndex = null;
+    let opened = [false,false,false];
+
+    // Eğer gözler sayfasında sessionStorage ile işaretlediysen otomatik aç
+    try {
+      ['k1','k2','k3'].forEach((k,i)=>{ if(sessionStorage.getItem(k)==='1'){ openRegion(i,true); } });
+    } catch(e) {}
+    updateRemain();
+
+    regions.forEach(r => {
+      r.addEventListener('click', () => {
+        activeIndex = parseInt(r.dataset.index,10);
+        if (opened[activeIndex]) return; // zaten açık
+        keyInput.value = '';
+        modal.style.display = 'flex';
+        keyInput.focus();
+      });
+    });
+
+    cancelBtn.addEventListener('click', () => { modal.style.display = 'none'; });
+    sendBtn.addEventListener('click', submitKey);
+    keyInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') submitKey(); });
+
+    function submitKey(){
+      const val = (keyInput.value||'').trim().toLowerCase();
+      if (!val) return;
+      const ok = (val === REQUIRED[activeIndex]);
+      if (ok) {
+        openRegion(activeIndex);
+        modal.style.display = 'none';
+      } else {
+        deny && deny.play && deny.play().catch(()=>{});
+        keyInput.style.animation = 'shake .2s';
+        setTimeout(()=> keyInput.style.animation = '', 230);
+        // Jumpscare: GIF + ses, kısa süre göster
+        if (jumpscare && jumpscareGif) {
+          jumpscareGif.src = 'jumpscare.gif?ts=' + Date.now(); // kendi jumpscare GIF adını koy
+          jumpscare.style.display = 'flex';
+        }
+        let jumpscareDuration = 1000;
+        if (jumpscareSound) {
+          jumpscareSound.currentTime = 0;
+          jumpscareSound.play().catch(()=>{});
+          // Use the duration if available (in seconds), fallback to ~1000ms
+          if (!isNaN(jumpscareSound.duration) && jumpscareSound.duration > 0) {
+            jumpscareDuration = jumpscareSound.duration * 1000;
+          }
+        }
+        // Bir süre sonra otomatik kapat (modal açık kalır, kullanıcı tekrar deneyebilir)
+        setTimeout(() => {
+          if (jumpscare) jumpscare.style.display = 'none';
+        }, jumpscareDuration);
+      }
+    }
+
+    function openRegion(i, silent){
+      opened[i] = true;
+      regions[i].classList.add('open');
+      regions[i].querySelector('.pulse').style.display = 'block';
+      updateRemain();
+      try { sessionStorage.setItem('k'+(i+1), '1'); } catch(e){}
+      if (!silent) { unlock && unlock.play && unlock.play().catch(()=>{}); }
+      checkAll();
+    }
+
+    // === Konuşma Bulmacası ===
+    const speechPuzzle = document.getElementById('speechPuzzle');
+    const micBtn = document.getElementById('micBtn');
+    const spStatus = document.getElementById('spStatus');
+
+    // Söylenmesi gereken kelime (değiştirilebilir)
+    const TRIGGER_WORDS = ['ceren', 'cebeci', 'ceren cebeci']; // küçük harf, TR dilinde konuşma önerilir
+
+    function showSpeechPuzzle(){
+      speechPuzzle.style.display = 'flex';
+      spStatus.textContent = 'Hazır. Mikrofonu başlat.';
+    }
+
+    function isSupported(){
+      return ('webkitSpeechRecognition' in window) || ('SpeechRecognition' in window);
+    }
+
+    let recog = null; let listening = false;
+
+    function startListening(){
+      if (!isSupported()) {
+        spStatus.textContent = '';
+        // İstersen burada fallback: doğrudan geçişe izin verebiliriz
+        return;
+      }
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recog = new SR();
+      recog.lang = 'tr-TR';
+      recog.interimResults = true;
+      recog.continuous = false;
+      listening = true;
+      micBtn.classList.add('rec');
+      spStatus.textContent = 'Dinleniyor… Sözcüğü söyle.';
+
+      recog.onresult = (e) => {
+        let text = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          text += e.results[i][0].transcript + ' ';
+        }
+        const norm = text.toLowerCase();
+        const hit = TRIGGER_WORDS.some(w => norm.includes(w));
+        if (hit) {
+          endListening(true);
+        }
+      };
+      recog.onerror = () => { endListening(false); };
+      recog.onend = () => { if (listening) { endListening(false); } };
+      try { recog.start(); } catch(err) { endListening(false); }
+    }
+
+    function endListening(success){
+      listening = false;
+      micBtn.classList.remove('rec');
+      try { recog && recog.stop(); } catch(e){}
+      if (success) {
+        spStatus.textContent = 'Kapı açılıyor…';
+        doTransition();
+      } else {
+        spStatus.textContent = 'Tekrar dene.';
+      }
+    }
+
+    micBtn && micBtn.addEventListener('click', startListening);
+
+    // Transition'ı tek fonksiyonda topladık
+    const TRANSITION_GIF = 'gecis.gif';
+    function doTransition(){
+      transitionGif.src = TRANSITION_GIF + '?ts=' + Date.now();
+      transition.style.display = 'flex';
+      transSound && transSound.play && transSound.play().catch(()=>{});
+      setTimeout(()=>{ window.location.href = REDIRECT_TO; }, 1200);
+    }
+
+    function checkAll(){
+      if (opened.every(Boolean)) {
+        showSpeechPuzzle();
+      }
+    }
+
+    // Küçük titreşim animasyonu (gerekirse ekle)
+    const style = document.createElement('style');
+    style.textContent = `@keyframes shake{0%{transform:translateX(0)}25%{transform:translateX(-4px)}50%{transform:translateX(4px)}75%{transform:translateX(-3px)}100%{transform:translateX(0)}}`;
+    document.head.appendChild(style);
+  </script>
+</body>
+</html>
